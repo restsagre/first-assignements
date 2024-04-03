@@ -15,6 +15,7 @@
 #include <llvm/Transforms/Utils/BasicBlockUtils.h>
 
 using namespace llvm;
+//Function to print algebrical identity msg
 void print_algebrical_identity(Instruction& i, Value *op, bool AddOrMul){
   if(AddOrMul == true){
     outs() << "ADD ALGEBRICAL IDENTITY\n";
@@ -29,7 +30,7 @@ void print_algebrical_identity(Instruction& i, Value *op, bool AddOrMul){
 }
 
 
-
+//Function implements algebrical identity
 void AlgebricIdentity(BasicBlock &B){
   Value *op1, *op2;
   for(Instruction &inst : B){
