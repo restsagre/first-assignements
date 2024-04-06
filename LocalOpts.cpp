@@ -15,7 +15,7 @@
 #include <llvm/Transforms/Utils/BasicBlockUtils.h>
 
 using namespace llvm;
-//Function to print Algebrical Identity msg
+//Funzione per stampare messaggio Algebrical Identity
 void print_algebrical_identity(Instruction& i, Value *op, bool AddOrMul){
   if(AddOrMul == true){
     outs() << "ADD ALGEBRICAL IDENTITY\n";
@@ -29,7 +29,7 @@ void print_algebrical_identity(Instruction& i, Value *op, bool AddOrMul){
   outs() << "\n";
 }
 
-//Function to print Strength Reductio msg
+//Funzione per stampare messaggio Strength Reductio 
 void print_strength_reduction(Instruction& i, Instruction* is){
   outs() << "STRENGHT REDUCTION\n";
   outs() << "\tUSES OF: " << i << " -> ";
@@ -39,9 +39,19 @@ void print_strength_reduction(Instruction& i, Instruction* is){
   outs() << "\n";
 }
 
+//Funzione per stamparemessaggio  Multi-Instruction Reduction
+void print_multiInstruction_reduction(Instruction& i, Instruction* is, Value *op){
+  outs() << "MULTI-INSTRUCTION REDUCTION: \n";
+  outs() << "\t" << "USES OF: " << i << " -> ";
+  i.printAsOperand(outs(), false);
+  outs() << " + " << *is << " -> ";
+  is->printAsOperand(outs(), false);
+  outs() << "REPLACE WITH: " << *op << "\n";
+}
 
-//Function implements Algebrical Identity
+//Funzione che implementa Algebrical Identity
 void AlgebricIdentity(BasicBlock &B){
+  outs() << "ENTRANDO NELLA FUNZIONE ALGEBRIC IDENTITY\n";
   Value *op1, *op2;
   for(Instruction &inst : B){
     //Add algebrical identity
@@ -80,11 +90,12 @@ void AlgebricIdentity(BasicBlock &B){
     }
 
   }
+  outs() << "USCENDO DALLA FUNZIONE ALGEBRIC IDENTITY\n";
 }
 
-//Function implements Strenght Reduction
+//Funzione che implementa Strenght Reduction
 void StrengthReduction(BasicBlock &B){
-  outs() << "ENTERING IN STRENGTH REDUCTION FUNCTION\n";
+  outs() << "ENTRANDO NELLA FUNZIONE STRENGTH REDUCTION\n";
   Value *op1, *op2;
   for(Instruction &inst : B){
     op1 = inst.getOperand(0);
@@ -190,6 +201,132 @@ void StrengthReduction(BasicBlock &B){
       }
     }
   }
+  outs() << "USCENDO DALLA FUNZIONE STRENGTH REDUCTION\n";
+}
+
+//Funzione che implementa Multi-Instruction Reduction
+void MultiInstructionReduction(BasicBlock &B){
+  outs() << "ENTRANDO NELLA FUNZIONE MULTI-INSTRUCTION REDUCTION\n";
+  Value *op1, *op2;
+  for(Instruction &inst : B){
+    op1 = inst.getOperand(0);
+    op2 = inst.getOperand(1);
+    //MultiInstructionReduction add before sub
+    if(inst.getOpcode()==Instruction::Add){
+      outs() << "\nadd detected\n";
+      if(ConstantInt* C = dyn_cast<ConstantInt>(op1)){
+        for(auto it = inst.user_begin(); it != inst.user_end(); ++it){
+          Instruction *instUser = dyn_cast<Instruction>(*it);
+          outs() << "\n user: " << *instUser << "\n";
+          Value *op1User = instUser->getOperand(0);
+          Value *op2User = instUser->getOperand(1);
+          if(instUser->getOpcode() == Instruction::Sub){
+            if(ConstantInt* C1 = dyn_cast<ConstantInt>(op1User)){
+              if(C->getValue().eq(C1->getValue())){
+                instUser->replaceAllUsesWith(op2);
+
+                print_multiInstruction_reduction(inst, instUser, op2);
+              }
+            }
+            else{
+              if((C1 = dyn_cast<ConstantInt>(op2User))){
+                if(C->getValue().eq(C1->getValue())){
+                  instUser->replaceAllUsesWith(op2);
+
+                  print_multiInstruction_reduction(inst, instUser, op2);
+                }
+              }
+            }
+          }
+        }
+      }
+      else{
+        if(ConstantInt* C = dyn_cast<ConstantInt>(op2)){
+          for(auto it = inst.user_begin(); it != inst.user_end(); ++it){
+            Instruction *instUser = dyn_cast<Instruction>(*it);
+            outs() << "\n user: " << *instUser << "\n";
+            Value *op1User = instUser->getOperand(0);
+            Value *op2User = instUser->getOperand(1);
+            if(instUser->getOpcode() == Instruction::Sub){
+              if(ConstantInt* C1 = dyn_cast<ConstantInt>(op1User)){
+                if(C->getValue().eq(C1->getValue())){
+                  instUser->replaceAllUsesWith(op1);
+
+                  print_multiInstruction_reduction(inst, instUser, op1);
+                }
+              }
+              else{
+                if((C1 = dyn_cast<ConstantInt>(op2User))){
+                  if(C->getValue().eq(C1->getValue())){
+                    instUser->replaceAllUsesWith(op1);
+
+                    print_multiInstruction_reduction(inst, instUser, op1);
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    else{
+      if(inst.getOpcode()==Instruction::Sub){
+        if(ConstantInt* C = dyn_cast<ConstantInt>(op1)){
+          for(auto it = inst.user_begin(); it != inst.user_end(); ++it){
+            Instruction *instUser = dyn_cast<Instruction>(*it);
+            Value *op1User = instUser->getOperand(0);
+            Value *op2User = instUser->getOperand(1);
+            if(instUser->getOpcode() == Instruction::Add){
+              if(ConstantInt* C1 = dyn_cast<ConstantInt>(op1User)){
+                if(C->getValue().eq(C1->getValue())){
+                  instUser->replaceAllUsesWith(op2);
+
+                  print_multiInstruction_reduction(inst, instUser, op2);
+                }
+              }
+              else{
+                if((C1 = dyn_cast<ConstantInt>(op2User))){
+                  if(C->getValue().eq(C1->getValue())){
+                    instUser->replaceAllUsesWith(op2);
+
+                    print_multiInstruction_reduction(inst, instUser, op2);
+                  }
+                }
+              }
+            }
+          }
+        }
+        else{
+          if(ConstantInt* C = dyn_cast<ConstantInt>(op2)){
+            for(auto it = inst.user_begin(); it != inst.user_end(); ++it){
+              Instruction *instUser = dyn_cast<Instruction>(*it);
+              Value *op1User = instUser->getOperand(0);
+              Value *op2User = instUser->getOperand(1);
+              if(instUser->getOpcode() == Instruction::Add){
+                if(ConstantInt* C1 = dyn_cast<ConstantInt>(op1User)){
+                  if(C->getValue().eq(C1->getValue())){
+                    instUser->replaceAllUsesWith(op1);
+
+                    print_multiInstruction_reduction(inst, instUser, op1);
+                  }
+                }
+                else{
+                  if((C1 = dyn_cast<ConstantInt>(op2User))){
+                    if(C->getValue().eq(C1->getValue())){
+                      instUser->replaceAllUsesWith(op1);
+
+                      print_multiInstruction_reduction(inst, instUser, op1);
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  outs() << "USCENDO DALLA FUNZIONE MULTI-INSTRUCTION REDUCTION\n";
 }
 
 bool runOnBasicBlock(BasicBlock &B) {  
@@ -224,6 +361,7 @@ bool runOnBasicBlock(BasicBlock &B) {
 
   AlgebricIdentity(B);
   StrengthReduction(B);
+  MultiInstructionReduction(B);
 
   // Preleviamo le prime due istruzioni del BB
   Instruction &Inst1st = *B.begin(), &Inst2nd = *(++B.begin());
