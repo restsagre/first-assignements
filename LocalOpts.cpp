@@ -6,13 +6,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/Utils/TestPass.h"
+#include "llvm/Transforms/Utils/LocalOpts.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/InstrTypes.h"
-// L'include seguente va in LocalOpts.h
-#include <llvm/IR/Constants.h>
-//Include inserita per funzioni ReplaceInstWithValue, ReplaceInstWithInst
-#include <llvm/Transforms/Utils/BasicBlockUtils.h>
 
 using namespace llvm;
 //Funzione per stampare messaggio Algebrical Identity
@@ -22,9 +18,9 @@ void print_algebrical_identity(Instruction& i, Value *op, bool AddOrMul){
   } else{
     outs() << "MUL ALGEBRICAL IDENTITY\n";
   }
-  outs() << "\tUSES OF: " ;
+  outs() << "\t     USES OF: " ;
   i.printAsOperand(outs(), false);
-  outs() << " REPLACE WITH: ";
+  outs() << "\n\tREPLACE WITH: ";
   op->printAsOperand(outs(), false);
   outs() << "\n";
 }
@@ -32,9 +28,9 @@ void print_algebrical_identity(Instruction& i, Value *op, bool AddOrMul){
 //Funzione per stampare messaggio Strength Reductio 
 void print_strength_reduction(Instruction& i, Instruction* is){
   outs() << "STRENGHT REDUCTION\n";
-  outs() << "\tUSES OF: " << i << " -> ";
+  outs() << "\t     USES OF: " << i << " -> ";
   i.printAsOperand(outs(), false);
-  outs() << " REPLACE WITH: " << *is << " -> ";
+  outs() << "\n\tREPLACE WITH: " << *is << " -> ";
   is->printAsOperand(outs(), false);
   outs() << "\n";
 }
@@ -42,11 +38,11 @@ void print_strength_reduction(Instruction& i, Instruction* is){
 //Funzione per stamparemessaggio  Multi-Instruction Reduction
 void print_multiInstruction_reduction(Instruction& i, Instruction* is, Value *op){
   outs() << "MULTI-INSTRUCTION REDUCTION: \n";
-  outs() << "\t" << "USES OF: " << i << " -> ";
+  outs() << "\t     USES OF: " << i << " -> ";
   i.printAsOperand(outs(), false);
-  outs() << " + " << *is << " -> ";
+  outs() << "   + " << *is << " -> ";
   is->printAsOperand(outs(), false);
-  outs() << "REPLACE WITH: " << *op << "\n";
+  outs() << "\n\tREPLACE WITH:   " << *op << "\n";
 }
 
 //Funzione che implementa Algebrical Identity
@@ -90,7 +86,7 @@ void AlgebricIdentity(BasicBlock &B){
     }
 
   }
-  outs() << "USCENDO DALLA FUNZIONE ALGEBRIC IDENTITY\n";
+  outs() << "USCENDO DALLA FUNZIONE ALGEBRIC IDENTITY\n\n";
 }
 
 //Funzione che implementa Strenght Reduction
@@ -126,9 +122,8 @@ void StrengthReduction(BasicBlock &B){
               difInst->insertAfter(shiftInst);
               inst.replaceAllUsesWith(difInst);
 
-              outs() << "MUL +1" << "\n";
+              outs() << "MUL +1 ";
               print_strength_reduction(inst, difInst);
-              outs() << "\t\t" << n << "\n";
             }
           }
         }
@@ -144,7 +139,6 @@ void StrengthReduction(BasicBlock &B){
 
           outs() << "MUL ";
           print_strength_reduction(inst, shiftInst);
-          outs() << "\tconst: " << *C1 << "\n";
         }
         else{
           if(C->getValue().ugt(1)){
@@ -159,9 +153,8 @@ void StrengthReduction(BasicBlock &B){
               difInst->insertAfter(shiftInst);
               inst.replaceAllUsesWith(difInst);
               
-              outs() << "\tMUL +1" << "\n";
+              outs() << "MUL +1 ";
               print_strength_reduction(inst, difInst);
-              outs() << "\t\t" << n << "\n";
             }
           }
         }
@@ -201,7 +194,7 @@ void StrengthReduction(BasicBlock &B){
       }
     }
   }
-  outs() << "USCENDO DALLA FUNZIONE STRENGTH REDUCTION\n";
+  outs() << "USCENDO DALLA FUNZIONE STRENGTH REDUCTION\n\n";
 }
 
 //Funzione che implementa Multi-Instruction Reduction
@@ -213,11 +206,9 @@ void MultiInstructionReduction(BasicBlock &B){
     op2 = inst.getOperand(1);
     //MultiInstructionReduction add before sub
     if(inst.getOpcode()==Instruction::Add){
-      outs() << "\nadd detected\n";
       if(ConstantInt* C = dyn_cast<ConstantInt>(op1)){
         for(auto it = inst.user_begin(); it != inst.user_end(); ++it){
           Instruction *instUser = dyn_cast<Instruction>(*it);
-          outs() << "\n user: " << *instUser << "\n";
           Value *op1User = instUser->getOperand(0);
           Value *op2User = instUser->getOperand(1);
           if(instUser->getOpcode() == Instruction::Sub){
@@ -244,7 +235,6 @@ void MultiInstructionReduction(BasicBlock &B){
         if(ConstantInt* C = dyn_cast<ConstantInt>(op2)){
           for(auto it = inst.user_begin(); it != inst.user_end(); ++it){
             Instruction *instUser = dyn_cast<Instruction>(*it);
-            outs() << "\n user: " << *instUser << "\n";
             Value *op1User = instUser->getOperand(0);
             Value *op2User = instUser->getOperand(1);
             if(instUser->getOpcode() == Instruction::Sub){
@@ -326,38 +316,10 @@ void MultiInstructionReduction(BasicBlock &B){
       }
     }
   }
-  outs() << "USCENDO DALLA FUNZIONE MULTI-INSTRUCTION REDUCTION\n";
+  outs() << "USCENDO DALLA FUNZIONE MULTI-INSTRUCTION REDUCTION\n\n";
 }
 
-bool runOnBasicBlock(BasicBlock &B) {  
-  //Print all instruction
-  /* outs() << "--------------------------------\n\n";
-
-  for(Instruction &inst : B){
-    outs() << inst << "\t OPCODE" << inst.getOpcode() << "\n";
-    for (auto *Iter = inst.op_begin(); Iter != inst.op_end(); ++Iter) {
-      Value *Operand = *Iter;
-       if (Argument *Arg = dyn_cast<Argument>(Operand)) {
-        outs() << "\t" << *Arg << ": SONO L'ARGOMENTO N. " << Arg->getArgNo() 
-          <<" DELLA FUNZIONE " << Arg->getParent()->getName()
-                << "\n";
-      } 
-      else{
-        if (ConstantInt *C = dyn_cast<ConstantInt>(Operand)) {
-           outs() << "\t" << *C << ": SONO UNA COSTANTE INTERA DI VALORE " << C->getValue()
-                   << "\n"; 
-          //algebric identity
-          if((C->getValue() == 0 && inst.getOpcode() == Instruction::Add) || (C->getValue() == 1 && inst.getOpcode() == Instruction::Mul)){
-            
-          }
-        }
-         else{
-          outs() << "\t  OPERANDO" << *Operand << "\n";
-        } 
-      }
-    }
-  }
-  outs() << "\n--------------------------------\n\n\n"; */
+bool runOnBasicBlock(BasicBlock &B) {
 
   AlgebricIdentity(B);
   StrengthReduction(B);
@@ -429,7 +391,7 @@ bool runOnFunction(Function &F) {
 }
 
 
-PreservedAnalyses TestPass::run(Module &M, ModuleAnalysisManager &AM) {
+PreservedAnalyses LocalOpts::run(Module &M, ModuleAnalysisManager &AM) {
   for (auto Fiter = M.begin(); Fiter != M.end(); ++Fiter)
     if (runOnFunction(*Fiter))
       return PreservedAnalyses::none();
